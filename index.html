@@ -75,17 +75,44 @@
             margin-bottom: 4px;
         }
         .flex-row > * { flex: 1;}
-        .flex-row-tax {
+        .tax-city-card-row {
             display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
+            gap: 12px;
+            margin: 10px 0 16px 0;
+            justify-content: stretch;
         }
-        .flex-row-tax label {
-            margin: 0;
+        .tax-city-card {
+            flex: 1;
+            background: #f5faff;
+            border: 2px solid #e3eafc;
+            border-radius: 8px;
+            padding: 10px 0;
+            text-align: center;
             color: #1565c0;
-            font-size: 0.98rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: border-color 0.18s, background 0.18s, color 0.18s;
+            user-select: none;
+            letter-spacing: 0.5px;
+        }
+        .tax-city-card.selected {
+            border-color: #3d5afe;
+            background: #e3f0ff;
+            color: #3d5afe;
             font-weight: bold;
+            box-shadow: 0 2px 8px #e3eafc;
+        }
+        .tax-city-card .tax-rate {
+            display: block;
+            font-size: 0.95em;
+            color: #43a047;
+            margin-top: 2px;
+        }
+        .tax-city-title {
+            color: #1565c0;
+            font-weight: bold;
+            margin-bottom: 2px;
+            font-size: 0.98em;
         }
         button {
             width: 100%;
@@ -132,12 +159,6 @@
             font-weight: bold;
             padding: 8px 0;
         }
-        .hint {
-            color: #ff9800;
-            font-size: 0.98rem;
-            margin: 8px 0;
-            font-weight: bold;
-        }
         @keyframes fadein {
             from { opacity: 0; transform: translateY(18px);}
             to { opacity: 1; transform: translateY(0);}
@@ -146,6 +167,7 @@
             .container { max-width: 98vw; padding: 12px 2vw;}
             h2 { font-size: 1.2rem;}
             #amount, #salary, #biz-income { width: 100px;}
+            .tax-city-card-row { gap: 6px; }
         }
     </style>
 </head>
@@ -173,16 +195,22 @@
             </select>
             <input type="number" id="rate" min="0" max="100" step="0.01" placeholder="税率(%)" value="13" oninput="selectOtherRate()">
         </div>
-        <div class="flex-row-tax">
-            <label for="location-tax">城建税：</label>
-            <select id="location-tax">
-                <option value="0.07">城市7%</option>
-                <option value="0.05">县镇5%</option>
-                <option value="0.01">乡村1%</option>
-            </select>
-            <span style="color:#1565c0;font-size:0.95em;">（附加税按增值税额计征）</span>
+        <div class="tax-city-title">请选择城建税适用区域：</div>
+        <div class="tax-city-card-row" id="tax-city-cards">
+            <div class="tax-city-card selected" data-rate="0.07" onclick="selectCityTax(this)">
+                城市
+                <span class="tax-rate">7%</span>
+            </div>
+            <div class="tax-city-card" data-rate="0.05" onclick="selectCityTax(this)">
+                县镇
+                <span class="tax-rate">5%</span>
+            </div>
+            <div class="tax-city-card" data-rate="0.01" onclick="selectCityTax(this)">
+                乡村
+                <span class="tax-rate">1%</span>
+            </div>
         </div>
-        <button onclick="calculateVAT()">💰 计算增值税及附加税</button>
+        <button onclick="calculateVAT()">💰 计算增值税</button>
         <div class="result" id="vat-result"></div>
 
         <!-- 个体工商户所得税部分（提前） -->
@@ -201,6 +229,19 @@
     </div>
 
     <script>
+        // 城建税卡片选择逻辑
+        function selectCityTax(card) {
+            document.querySelectorAll('.tax-city-card').forEach(function(item){
+                item.classList.remove('selected');
+            });
+            card.classList.add('selected');
+        }
+        function getSelectedCityTaxRate() {
+            var selected = document.querySelector('.tax-city-card.selected');
+            return selected ? parseFloat(selected.getAttribute('data-rate')) : 0.07;
+        }
+
+        // 增值税逻辑
         function updateRateInput() {
             var select = document.getElementById('rate-select');
             var rateInput = document.getElementById('rate');
@@ -222,7 +263,7 @@
         function calculateVAT() {
             var amount = parseFloat(document.getElementById('amount').value);
             var rate = parseFloat(document.getElementById('rate').value);
-            var locationTaxRate = parseFloat(document.getElementById('location-tax').value);
+            var locationTaxRate = getSelectedCityTaxRate();
 
             if (isNaN(amount) || isNaN(rate) || amount < 0 || rate < 0 || rate > 100) {
                 document.getElementById('vat-result').innerHTML = "<div class='err'>请输入有效的金额和税率（0-100）</div>";
@@ -235,12 +276,6 @@
             var vatInside = amount * r / (1 + r);
             var amountWithoutTax = amount / (1 + r);
 
-            // 小规模免税额判断
-            var exemptHint = "";
-            if (amount < 100000) {
-                exemptHint = "<div class='hint'>提示：该金额低于小规模纳税人月度免税额（10万元），可申报免征增值税。</div>";
-            }
-
             // 附加税计算（按价外税，即实际缴纳增值税额为基数）
             var cityTax = vatOutside * locationTaxRate;
             var eduTax = vatOutside * 0.03;
@@ -248,7 +283,6 @@
             var totalAddTax = cityTax + eduTax + localEduTax;
 
             document.getElementById('vat-result').innerHTML =
-                exemptHint +
                 "<div class='tax-type'>价外税</div>" +
                 "未含税金额：<b style='color:#1565c0;'>" + amount.toFixed(2) + "</b> 元<br>" +
                 "增值税：<b style='color:#43a047;'>" + vatOutside.toFixed(2) + "</b> 元<br>" +
