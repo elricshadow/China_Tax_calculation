@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>中国税费在线计算器</title>
+    <title>中国税费计算器</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
@@ -75,6 +75,18 @@
             margin-bottom: 4px;
         }
         .flex-row > * { flex: 1;}
+        .flex-row-tax {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .flex-row-tax label {
+            margin: 0;
+            color: #1565c0;
+            font-size: 0.98rem;
+            font-weight: bold;
+        }
         button {
             width: 100%;
             padding: 12px;
@@ -120,6 +132,12 @@
             font-weight: bold;
             padding: 8px 0;
         }
+        .hint {
+            color: #ff9800;
+            font-size: 0.98rem;
+            margin: 8px 0;
+            font-weight: bold;
+        }
         @keyframes fadein {
             from { opacity: 0; transform: translateY(18px);}
             to { opacity: 1; transform: translateY(0);}
@@ -133,7 +151,7 @@
 </head>
 <body>
     <div class="container">
-        <h2>中国税费在线计算器</h2>
+        <h2>中国税费计算器</h2>
 
         <!-- 增值税部分 -->
         <div class="section-title">增值税计算</div>
@@ -148,12 +166,23 @@
                 <option value="10">10%</option>
                 <option value="9">9%</option>
                 <option value="6">6%</option>
+                <option value="3">3%</option>
+                <option value="1">1%</option>
                 <option value="0">0%</option>
                 <option value="other">自定义</option>
             </select>
             <input type="number" id="rate" min="0" max="100" step="0.01" placeholder="税率(%)" value="13" oninput="selectOtherRate()">
         </div>
-        <button onclick="calculateVAT()">💰 计算增值税</button>
+        <div class="flex-row-tax">
+            <label for="location-tax">城建税：</label>
+            <select id="location-tax">
+                <option value="0.07">城市7%</option>
+                <option value="0.05">县镇5%</option>
+                <option value="0.01">乡村1%</option>
+            </select>
+            <span style="color:#1565c0;font-size:0.95em;">（附加税按增值税额计征）</span>
+        </div>
+        <button onclick="calculateVAT()">💰 计算增值税及附加税</button>
         <div class="result" id="vat-result"></div>
 
         <!-- 个体工商户所得税部分（提前） -->
@@ -172,7 +201,6 @@
     </div>
 
     <script>
-        // 增值税逻辑
         function updateRateInput() {
             var select = document.getElementById('rate-select');
             var rateInput = document.getElementById('rate');
@@ -186,7 +214,7 @@
         function selectOtherRate() {
             var rateInput = document.getElementById('rate');
             var select = document.getElementById('rate-select');
-            var presetRates = ["13", "11", "10", "9", "6", "0"];
+            var presetRates = ["13", "11", "10", "9", "6", "3", "1", "0"];
             if (!presetRates.includes(rateInput.value)) {
                 select.value = "other";
             }
@@ -194,6 +222,7 @@
         function calculateVAT() {
             var amount = parseFloat(document.getElementById('amount').value);
             var rate = parseFloat(document.getElementById('rate').value);
+            var locationTaxRate = parseFloat(document.getElementById('location-tax').value);
 
             if (isNaN(amount) || isNaN(rate) || amount < 0 || rate < 0 || rate > 100) {
                 document.getElementById('vat-result').innerHTML = "<div class='err'>请输入有效的金额和税率（0-100）</div>";
@@ -206,7 +235,20 @@
             var vatInside = amount * r / (1 + r);
             var amountWithoutTax = amount / (1 + r);
 
+            // 小规模免税额判断
+            var exemptHint = "";
+            if (amount < 100000) {
+                exemptHint = "<div class='hint'>提示：该金额低于小规模纳税人月度免税额（10万元），可申报免征增值税。</div>";
+            }
+
+            // 附加税计算（按价外税，即实际缴纳增值税额为基数）
+            var cityTax = vatOutside * locationTaxRate;
+            var eduTax = vatOutside * 0.03;
+            var localEduTax = vatOutside * 0.02;
+            var totalAddTax = cityTax + eduTax + localEduTax;
+
             document.getElementById('vat-result').innerHTML =
+                exemptHint +
                 "<div class='tax-type'>价外税</div>" +
                 "未含税金额：<b style='color:#1565c0;'>" + amount.toFixed(2) + "</b> 元<br>" +
                 "增值税：<b style='color:#43a047;'>" + vatOutside.toFixed(2) + "</b> 元<br>" +
@@ -214,7 +256,12 @@
                 "<div class='tax-type'>价内税</div>" +
                 "含税金额：<b style='color:#1565c0;'>" + amount.toFixed(2) + "</b> 元<br>" +
                 "增值税：<b style='color:#e65100;'>" + vatInside.toFixed(2) + "</b> 元<br>" +
-                "未含税金额：<b style='color:#00838f;'>" + amountWithoutTax.toFixed(2) + "</b> 元";
+                "未含税金额：<b style='color:#00838f;'>" + amountWithoutTax.toFixed(2) + "</b> 元<br>" +
+                "<div class='tax-type'>附加税费</div>" +
+                "城建税：<b>" + cityTax.toFixed(2) + "</b> 元<br>" +
+                "教育费附加：<b>" + eduTax.toFixed(2) + "</b> 元<br>" +
+                "地方教育附加：<b>" + localEduTax.toFixed(2) + "</b> 元<br>" +
+                "附加税合计：<b style='color:#e65100;'>" + totalAddTax.toFixed(2) + "</b> 元";
         }
 
         // 个体工商户所得税逻辑
@@ -303,4 +350,3 @@
     </script>
 </body>
 </html>
-
