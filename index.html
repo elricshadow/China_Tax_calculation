@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>中国增值税计算器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: "Segoe UI", "PingFang SC", Arial, sans-serif;
+            background: linear-gradient(120deg, #e3f0ff 0%, #f7f7f7 100%);
+            margin: 0;
+            min-height: 100vh;
+        }
+        .container {
+            background: #fff;
+            padding: 28px 24px;
+            border-radius: 16px;
+            max-width: 420px;
+            margin: 48px auto;
+            box-shadow: 0 4px 24px #d1e2fe55;
+            position: relative;
+        }
+        h2 {
+            text-align: center;
+            color: #3d5afe;
+            margin-bottom: 28px;
+            font-size: 2rem;
+            letter-spacing: 2px;
+        }
+        label {
+            display: block;
+            margin: 18px 0 8px;
+            font-size: 1rem;
+            color: #3973b7;
+        }
+        /* 金额输入框 */
+        #amount {
+            width: 390px;
+            min-width: 100px;
+            padding: 12px 14px;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: 1.5px solid #b6cefa;
+            background: #f5faff;
+            transition: border-color 0.2s;
+            outline: none;
+            display: block;
+        }
+        #amount:focus {
+            border-color: #3d5afe;
+        }
+        select, #rate {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: 1.5px solid #b6cefa;
+            background: #f5faff;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+        select:focus, #rate:focus {
+            border-color: #3d5afe;
+        }
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .flex-row > * { flex: 1;}
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(90deg, #3d5afe 60%, #6ab7ff 100%);
+            color: #fff;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 28px;
+            box-shadow: 0 2px 8px #e3eafc;
+            transition: background 0.3s, box-shadow 0.2s;
+        }
+        button:hover {
+            background: linear-gradient(90deg, #6ab7ff 0%, #3d5afe 100%);
+            box-shadow: 0 4px 16px #bdd7fa88;
+        }
+        .result {
+            margin-top: 28px;
+            font-size: 1.08rem;
+            background: #f5faff;
+            border-radius: 10px;
+            padding: 16px 12px;
+            box-shadow: 0 2px 12px #c3e0ff55;
+            animation: fadein 0.7s;
+        }
+        .tax-type {
+            font-weight: bold;
+            margin: 12px 0 8px;
+            color: #3d5afe;
+            font-size: 1.07rem;
+            display: flex;
+            align-items: center;
+        }
+        .tax-type::before {
+            content: "💡";
+            margin-right: 6px;
+            font-size: 1.1em;
+        }
+        @keyframes fadein {
+            from { opacity: 0; transform: translateY(18px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        .err {
+            color: #e53935;
+            text-align: center;
+            font-weight: bold;
+            padding: 8px 0;
+        }
+        @media (max-width: 500px) {
+            .container { max-width: 98vw; padding: 16px 4vw;}
+            h2 { font-size: 1.2rem;}
+            #amount { width: 100px;}
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>中国增值税计算器</h2>
+        <label for="amount">金额（元）：</label>
+        <input type="number" id="amount" min="0" step="0.01" placeholder="请输入金额">
+
+        <label for="rate-select">税率：</label>
+        <div class="flex-row">
+            <select id="rate-select" onchange="updateRateInput()">
+                <option value="13">13%</option>
+                <option value="11">11%</option>
+                <option value="10">10%</option>
+                <option value="9">9%</option>
+                <option value="6">6%</option>
+                <option value="0">0%</option>
+                <option value="other">自定义</option>
+            </select>
+            <input type="number" id="rate" min="0" max="100" step="0.01" placeholder="税率(%)" value="13" oninput="selectOtherRate()">
+        </div>
+
+        <button onclick="calculateVAT()">💰 计算</button>
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        function updateRateInput() {
+            var select = document.getElementById('rate-select');
+            var rateInput = document.getElementById('rate');
+            if (select.value === "other") {
+                rateInput.value = "";
+                rateInput.focus();
+            } else {
+                rateInput.value = select.value;
+            }
+        }
+        function selectOtherRate() {
+            var rateInput = document.getElementById('rate');
+            var select = document.getElementById('rate-select');
+            var presetRates = ["13", "11", "10", "9", "6", "0"];
+            if (!presetRates.includes(rateInput.value)) {
+                select.value = "other";
+            }
+        }
+        function calculateVAT() {
+            var amount = parseFloat(document.getElementById('amount').value);
+            var rate = parseFloat(document.getElementById('rate').value);
+
+            if (isNaN(amount) || isNaN(rate) || amount < 0 || rate < 0 || rate > 100) {
+                document.getElementById('result').innerHTML = "<div class='err'>请输入有效的金额和税率（0-100）</div>";
+                return;
+            }
+
+            var r = rate / 100;
+
+            // 价外税
+            var vatOutside = amount * r;
+            var totalOutside = amount + vatOutside;
+
+            // 价内税
+            var vatInside = amount * r / (1 + r);
+            var amountWithoutTax = amount / (1 + r);
+
+            document.getElementById('result').innerHTML =
+                "<div class='tax-type'>价外税</div>" +
+                "未含税金额：<b style='color:#1565c0;'>" + amount.toFixed(2) + "</b> 元<br>" +
+                "增值税：<b style='color:#43a047;'>" + vatOutside.toFixed(2) + "</b> 元<br>" +
+                "含税总额：<b style='color:#3d5afe;'>" + totalOutside.toFixed(2) + "</b> 元<br>" +
+
+                "<div class='tax-type'>价内税</div>" +
+                "含税金额：<b style='color:#1565c0;'>" + amount.toFixed(2) + "</b> 元<br>" +
+                "增值税：<b style='color:#e65100;'>" + vatInside.toFixed(2) + "</b> 元<br>" +
+                "未含税金额：<b style='color:#00838f;'>" + amountWithoutTax.toFixed(2) + "</b> 元";
+        }
+    </script>
+</body>
+</html>
