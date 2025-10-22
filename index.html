@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>中国增值税计算器</title>
+    <title>中国税费计算器</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
@@ -15,10 +15,9 @@
             background: #fff;
             padding: 28px 24px;
             border-radius: 16px;
-            max-width: 420px;
+            max-width: 430px;
             margin: 48px auto;
             box-shadow: 0 4px 24px #d1e2fe55;
-            position: relative;
         }
         h2 {
             text-align: center;
@@ -27,15 +26,23 @@
             font-size: 2rem;
             letter-spacing: 2px;
         }
+        .section-title {
+            font-size: 1.17rem;
+            color: #1565c0;
+            margin: 24px 0 12px;
+            font-weight: bold;
+            border-left: 4px solid #3d5afe;
+            padding-left: 10px;
+            letter-spacing: 1px;
+        }
         label {
             display: block;
-            margin: 18px 0 8px;
+            margin: 14px 0 8px;
             font-size: 1rem;
             color: #3973b7;
         }
-        /* 金额输入框 */
-        #amount {
-            width: 390px;
+        #amount, #salary, #biz-income {
+            width: 180px;
             min-width: 100px;
             padding: 12px 14px;
             font-size: 1rem;
@@ -46,7 +53,7 @@
             outline: none;
             display: block;
         }
-        #amount:focus {
+        #amount:focus, #salary:focus, #biz-income:focus {
             border-color: #3d5afe;
         }
         select, #rate {
@@ -73,11 +80,11 @@
             padding: 12px;
             background: linear-gradient(90deg, #3d5afe 60%, #6ab7ff 100%);
             color: #fff;
-            font-size: 1.1rem;
+            font-size: 1.08rem;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            margin-top: 28px;
+            margin-top: 18px;
             box-shadow: 0 2px 8px #e3eafc;
             transition: background 0.3s, box-shadow 0.2s;
         }
@@ -86,11 +93,11 @@
             box-shadow: 0 4px 16px #bdd7fa88;
         }
         .result {
-            margin-top: 28px;
-            font-size: 1.08rem;
+            margin-top: 20px;
+            font-size: 1.05rem;
             background: #f5faff;
             border-radius: 10px;
-            padding: 16px 12px;
+            padding: 14px 10px;
             box-shadow: 0 2px 12px #c3e0ff55;
             animation: fadein 0.7s;
         }
@@ -107,26 +114,29 @@
             margin-right: 6px;
             font-size: 1.1em;
         }
-        @keyframes fadein {
-            from { opacity: 0; transform: translateY(18px);}
-            to { opacity: 1; transform: translateY(0);}
-        }
         .err {
             color: #e53935;
             text-align: center;
             font-weight: bold;
             padding: 8px 0;
         }
+        @keyframes fadein {
+            from { opacity: 0; transform: translateY(18px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
         @media (max-width: 500px) {
-            .container { max-width: 98vw; padding: 16px 4vw;}
+            .container { max-width: 98vw; padding: 12px 2vw;}
             h2 { font-size: 1.2rem;}
-            #amount { width: 100px;}
+            #amount, #salary, #biz-income { width: 100px;}
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>中国增值税计算器</h2>
+        <h2>中国税费计算器</h2>
+
+        <!-- 增值税部分 -->
+        <div class="section-title">增值税计算</div>
         <label for="amount">金额（元）：</label>
         <input type="number" id="amount" min="0" step="0.01" placeholder="请输入金额">
 
@@ -143,12 +153,26 @@
             </select>
             <input type="number" id="rate" min="0" max="100" step="0.01" placeholder="税率(%)" value="13" oninput="selectOtherRate()">
         </div>
+        <button onclick="calculateVAT()">💰 计算增值税</button>
+        <div class="result" id="vat-result"></div>
 
-        <button onclick="calculateVAT()">💰 计算</button>
-        <div class="result" id="result"></div>
+        <!-- 个体工商户所得税部分（提前） -->
+        <div class="section-title">个体工商户所得税计算</div>
+        <label for="biz-income">经营收入（元）：</label>
+        <input type="number" id="biz-income" min="0" step="0.01" placeholder="请输入经营收入">
+        <button onclick="calculateBizTax()">🏢 计算个体工商户所得税</button>
+        <div class="result" id="biz-result"></div>
+
+        <!-- 个人所得税部分（后置） -->
+        <div class="section-title">个人所得税计算（工资薪金）</div>
+        <label for="salary">税前工资（元）：</label>
+        <input type="number" id="salary" min="0" step="0.01" placeholder="请输入税前工资">
+        <button onclick="calculateIncomeTax()">🧾 计算个税</button>
+        <div class="result" id="income-result"></div>
     </div>
 
     <script>
+        // 增值税逻辑
         function updateRateInput() {
             var select = document.getElementById('rate-select');
             var rateInput = document.getElementById('rate');
@@ -172,30 +196,109 @@
             var rate = parseFloat(document.getElementById('rate').value);
 
             if (isNaN(amount) || isNaN(rate) || amount < 0 || rate < 0 || rate > 100) {
-                document.getElementById('result').innerHTML = "<div class='err'>请输入有效的金额和税率（0-100）</div>";
+                document.getElementById('vat-result').innerHTML = "<div class='err'>请输入有效的金额和税率（0-100）</div>";
                 return;
             }
 
             var r = rate / 100;
-
-            // 价外税
             var vatOutside = amount * r;
             var totalOutside = amount + vatOutside;
-
-            // 价内税
             var vatInside = amount * r / (1 + r);
             var amountWithoutTax = amount / (1 + r);
 
-            document.getElementById('result').innerHTML =
+            document.getElementById('vat-result').innerHTML =
                 "<div class='tax-type'>价外税</div>" +
                 "未含税金额：<b style='color:#1565c0;'>" + amount.toFixed(2) + "</b> 元<br>" +
                 "增值税：<b style='color:#43a047;'>" + vatOutside.toFixed(2) + "</b> 元<br>" +
                 "含税总额：<b style='color:#3d5afe;'>" + totalOutside.toFixed(2) + "</b> 元<br>" +
-
                 "<div class='tax-type'>价内税</div>" +
                 "含税金额：<b style='color:#1565c0;'>" + amount.toFixed(2) + "</b> 元<br>" +
                 "增值税：<b style='color:#e65100;'>" + vatInside.toFixed(2) + "</b> 元<br>" +
                 "未含税金额：<b style='color:#00838f;'>" + amountWithoutTax.toFixed(2) + "</b> 元";
+        }
+
+        // 个体工商户所得税逻辑
+        function calculateBizTax() {
+            var income = parseFloat(document.getElementById('biz-income').value);
+            var threshold = 20000; // 个体工商户起征点
+            if (isNaN(income) || income < 0) {
+                document.getElementById('biz-result').innerHTML = "<div class='err'>请输入有效的经营收入</div>";
+                return;
+            }
+            var taxable = income - threshold;
+            if (taxable <= 0) {
+                document.getElementById('biz-result').innerHTML = "<b>应纳税所得额为0，无需缴纳所得税。</b><br>税后收入：<span style='color: #43a047;'>" + income.toFixed(2) + "</span> 元";
+                return;
+            }
+
+            // 个体工商户经营所得速算表
+            var taxRate = 0, quickDeduction = 0, taxLevel = '';
+            if (taxable <= 20000) {
+                taxRate = 5; quickDeduction = 0; taxLevel = '第1级';
+            } else if (taxable <= 30000) {
+                taxRate = 10; quickDeduction = 1000; taxLevel = '第2级';
+            } else if (taxable <= 40000) {
+                taxRate = 20; quickDeduction = 3000; taxLevel = '第3级';
+            } else if (taxable <= 60000) {
+                taxRate = 30; quickDeduction = 7000; taxLevel = '第4级';
+            } else if (taxable <= 80000) {
+                taxRate = 35; quickDeduction = 12000; taxLevel = '第5级';
+            } else {
+                taxRate = 45; quickDeduction = 22000; taxLevel = '第6级';
+            }
+
+            var tax = taxable * taxRate / 100 - quickDeduction;
+            var actualIncome = income - tax;
+
+            document.getElementById('biz-result').innerHTML =
+                "<div class='tax-type'>个体工商户所得税</div>" +
+                "应纳税所得额：<b>" + taxable.toFixed(2) + "</b> 元<br>" +
+                "适用税率：<b>" + taxRate + "%</b>（" + taxLevel + "，速算扣除数：" + quickDeduction + " 元）<br>" +
+                "应纳税额：<b style='color:#e65100;'>" + tax.toFixed(2) + "</b> 元<br>" +
+                "税后收入：<b style='color:#43a047;'>" + actualIncome.toFixed(2) + "</b> 元";
+        }
+
+        // 个人所得税逻辑
+        function calculateIncomeTax() {
+            var salary = parseFloat(document.getElementById('salary').value);
+            var threshold = 5000; // 个人所得税起征点
+            if (isNaN(salary) || salary < 0) {
+                document.getElementById('income-result').innerHTML = "<div class='err'>请输入有效的税前工资</div>";
+                return;
+            }
+            var taxable = salary - threshold;
+            if (taxable <= 0) {
+                document.getElementById('income-result').innerHTML = "<b>应纳税所得额为0，无需缴纳个税。</b><br>实发工资：<span style='color: #43a047;'>" + salary.toFixed(2) + "</span> 元";
+                return;
+            }
+
+            // 工资薪金速算表分级
+            var taxRate = 0, quickDeduction = 0, taxLevel = '';
+            if (taxable <= 3000) {
+                taxRate = 3; quickDeduction = 0; taxLevel = '第1级';
+            } else if (taxable <= 12000) {
+                taxRate = 10; quickDeduction = 210; taxLevel = '第2级';
+            } else if (taxable <= 25000) {
+                taxRate = 20; quickDeduction = 1410; taxLevel = '第3级';
+            } else if (taxable <= 35000) {
+                taxRate = 25; quickDeduction = 2660; taxLevel = '第4级';
+            } else if (taxable <= 55000) {
+                taxRate = 30; quickDeduction = 4410; taxLevel = '第5级';
+            } else if (taxable <= 80000) {
+                taxRate = 35; quickDeduction = 7160; taxLevel = '第6级';
+            } else {
+                taxRate = 45; quickDeduction = 15160; taxLevel = '第7级';
+            }
+
+            var tax = taxable * taxRate / 100 - quickDeduction;
+            var actualSalary = salary - tax;
+
+            document.getElementById('income-result').innerHTML =
+                "<div class='tax-type'>个人所得税（工资薪金）</div>" +
+                "应纳税所得额：<b>" + taxable.toFixed(2) + "</b> 元<br>" +
+                "适用税率：<b>" + taxRate + "%</b>（" + taxLevel + "，速算扣除数：" + quickDeduction + " 元）<br>" +
+                "应纳税额：<b style='color:#e65100;'>" + tax.toFixed(2) + "</b> 元<br>" +
+                "实发工资：<b style='color:#43a047;'>" + actualSalary.toFixed(2) + "</b> 元";
         }
     </script>
 </body>
